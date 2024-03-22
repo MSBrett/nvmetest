@@ -6,5 +6,5 @@
 
 ```bash
 #!/bin/bash
-az deployment group create --template-file ./main.bicep --parameters ./main.bicepparam --resource-group 'nvme_test'
+az deployment group create --template-file ./main.bicep --resource-group 'nvme_test'
 ```
