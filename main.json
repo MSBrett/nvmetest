@@ -1,0 +1,671 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.26.54.24096",
+      "templateHash": "4927887284318204001"
+    }
+  },
+  "parameters": {
+    "vm_name": {
+      "type": "string",
+      "defaultValue": "vm-ebsv5-nvme"
+    },
+    "vnet_name": {
+      "type": "string",
+      "defaultValue": "vm-ebsv5-nvme-vnet"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westus3"
+    },
+    "addressPrefix": {
+      "type": "string",
+      "defaultValue": "10.2.0.0/24"
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "ttadmin"
+    },
+    "availabilityZone": {
+      "type": "string",
+      "defaultValue": "1",
+      "allowedValues": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_E64bs_v5",
+      "allowedValues": [
+        "Standard_E32bs_v5",
+        "Standard_E64bs_v5"
+      ]
+    },
+    "deployBastion": {
+      "type": "bool",
+      "defaultValue": true
+    }
+  },
+  "variables": {
+    "$fxv#0": "[string]$vmName = $env:vmName\n[string]$rgName = $env:rgName\n[string]$azLocation = $env:azLocation\n[string]$commandName = \"ConfigureDisks\"\n\nif ([string]::IsNullOrEmpty($vmName) ){\n    Write-Output \"vmName name is not provided\"\n    throw \"vmName name is not provided\"\n}\n\nif ([string]::IsNullOrEmpty($rgName)){\n    Write-Output \"rgName is not provided\"\n    throw \"rgName is not provided\"\n}\n\nif ([string]::IsNullOrEmpty($azLocation)){\n    Write-Output \"azLocation is not provided\"\n    throw \"azLocation is not provided\"\n}\n\n$scriptToRun = '$physicaldisks = Get-StorageSubsystem -FriendlyName \"Windows Storage*\" | Get-PhysicalDisk -CanPool $true; New-StoragePool -FriendlyName \"data\" -StorageSubSystemFriendlyName \"Windows Storage*\" -PhysicalDisks $physicaldisks | New-VirtualDisk -FriendlyName \"data\" -UseMaximumSize -ResiliencySettingName Simple | Initialize-Disk -PassThru | New-Partition -AssignDriveLetter -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel \"data\" -Confirm:$false'\nWrite-Output 'Running script to configure storage'\nWrite-Output 'Remove existing run command with the same name - if it exists'\nRemove-AzVMRunCommand -ResourceGroupName $rgName -VMName $vmName -RunCommandName $commandName\nWrite-Output 'Create new run command'\nSet-AzVMRunCommand -ResourceGroupName $rgName -VMName $vmName -Location $azLocation -RunCommandName $commandName -SourceScript $scriptToRun\nWrite-Output 'Get status of the command'\nGet-AzVMRunCommand -ResourceGroupName $rgName -VMName $vmName -RunCommandName $commandName -Expand InstanceView\nWrite-Output 'Done'",
+    "resourceToken": "[toLower(uniqueString(subscription().id, resourceGroup().name, parameters('location')))]",
+    "nic_name": "[format('{0}-nic', parameters('vm_name'))]",
+    "bastionHostName": "[format('bastion{0}', variables('resourceToken'))]",
+    "bastionPublicIpName": "[format('{0}-pip', variables('bastionHostName'))]",
+    "identityName": "[format('mi{0}', variables('resourceToken'))]",
+    "rbacRoles": [
+      "9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[parameters('vm_name')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2022-datacenter-azure-edition",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[format('{0}_OsDisk', parameters('vm_name'))]",
+            "createOption": "FromImage",
+            "caching": "ReadWrite",
+            "deleteOption": "Delete"
+          },
+          "dataDisks": [
+            {
+              "lun": 0,
+              "name": "disk0",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk0')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            },
+            {
+              "lun": 1,
+              "name": "disk1",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk1')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            },
+            {
+              "lun": 2,
+              "name": "disk2",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk2')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            },
+            {
+              "lun": 3,
+              "name": "disk3",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk3')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            },
+            {
+              "lun": 4,
+              "name": "disk4",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk4')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            },
+            {
+              "lun": 5,
+              "name": "disk5",
+              "createOption": "Attach",
+              "caching": "None",
+              "writeAcceleratorEnabled": false,
+              "managedDisk": {
+                "id": "[resourceId('Microsoft.Compute/disks', 'disk5')]"
+              },
+              "deleteOption": "Detach",
+              "toBeDetached": false
+            }
+          ],
+          "diskControllerType": "NVMe"
+        },
+        "osProfile": {
+          "computerName": "[parameters('vm_name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": true,
+            "enableVMAgentPlatformUpdates": false
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nic_name'))]",
+              "properties": {
+                "deleteOption": "Delete"
+              }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": false
+          }
+        },
+        "licenseType": "Windows_Server"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/disks', 'disk0')]",
+        "[resourceId('Microsoft.Compute/disks', 'disk1')]",
+        "[resourceId('Microsoft.Compute/disks', 'disk2')]",
+        "[resourceId('Microsoft.Compute/disks', 'disk3')]",
+        "[resourceId('Microsoft.Compute/disks', 'disk4')]",
+        "[resourceId('Microsoft.Compute/disks', 'disk5')]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nic_name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk0",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk1",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk2",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk3",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk4",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2023-10-02",
+      "name": "disk5",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "PremiumV2_LRS"
+      },
+      "zones": [
+        "[parameters('availabilityZone')]"
+      ],
+      "properties": {
+        "creationData": {
+          "createOption": "Empty",
+          "logicalSectorSize": 4096
+        },
+        "diskSizeGB": 1024,
+        "diskIOPSReadWrite": 80000,
+        "diskMBpsReadWrite": 1200,
+        "diskIOPSReadOnly": 3000,
+        "diskMBpsReadOnly": 125
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('vnet_name')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "ComputeSubnet",
+            "properties": {
+              "addressPrefix": "[cidrSubnet(parameters('addressPrefix'), 26, 0)]"
+            }
+          },
+          {
+            "name": "AzureBastionSubnet",
+            "properties": {
+              "addressPrefix": "[cidrSubnet(parameters('addressPrefix'), 26, 1)]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'AzureBastionSubnet-nsg')]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'AzureBastionSubnet-nsg')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('nic_name')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnet_name')), '2023-09-01').subnets[0].id]"
+              },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "enableAcceleratedNetworking": true,
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnet_name'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployBastion')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-04-01",
+      "name": "[variables('bastionPublicIpName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Static",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('bastionPublicIpName')]"
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployBastion')]",
+      "type": "Microsoft.Network/bastionHosts",
+      "apiVersion": "2023-04-01",
+      "name": "[variables('bastionHostName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "properties": {
+              "subnet": {
+                "id": "[format('{0}/subnets/AzureBastionSubnet', resourceId('Microsoft.Network/virtualNetworks', parameters('vnet_name')))]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('bastionPublicIpName'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            },
+            "name": "ipconfig1"
+          }
+        ],
+        "enableTunneling": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('bastionPublicIpName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnet_name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-04-01",
+      "name": "AzureBastionSubnet-nsg",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowHttpsInBound",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationPortRange": "443",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "AllowGatewayManagerInBound",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "GatewayManager",
+              "destinationPortRange": "443",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 110,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "AllowLoadBalancerInBound",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "AzureLoadBalancer",
+              "destinationPortRange": "443",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 120,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "AllowBastionHostCommunicationInBound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationPortRanges": [
+                "8080",
+                "5701"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 130,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "DenyAllInBound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationPortRange": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Deny",
+              "priority": 1000,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "AllowSshRdpOutBound",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationPortRanges": [
+                "22",
+                "3389"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "AllowAzureCloudCommunicationOutBound",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationPortRange": "443",
+              "destinationAddressPrefix": "AzureCloud",
+              "access": "Allow",
+              "priority": 110,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "AllowBastionHostCommunicationOutBound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationPortRanges": [
+                "8080",
+                "5701"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 120,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "AllowGetSessionInformationOutBound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "Internet",
+              "destinationPortRanges": [
+                "80",
+                "443"
+              ],
+              "access": "Allow",
+              "priority": 130,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "DenyAllOutBound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Deny",
+              "priority": 1000,
+              "direction": "Outbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('identityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "copy": {
+        "name": "identityRoleAssignments",
+        "count": "[length(variables('rbacRoles'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Compute/virtualMachines', parameters('vm_name')), variables('rbacRoles')[copyIndex()], resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('rbacRoles')[copyIndex()])]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('vm_name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2020-10-01",
+      "name": "configure-storage",
+      "kind": "AzurePowerShell",
+      "location": "[if(startsWith(parameters('location'), 'china'), 'chinaeast2', parameters('location'))]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')))]": {}
+        }
+      },
+      "properties": {
+        "azPowerShellVersion": "8.0",
+        "retentionInterval": "PT1H",
+        "environmentVariables": [
+          {
+            "name": "vmName",
+            "value": "[parameters('vm_name')]"
+          },
+          {
+            "name": "rgName",
+            "value": "[resourceGroup().name]"
+          },
+          {
+            "name": "azLocation",
+            "value": "[if(startsWith(parameters('location'), 'china'), 'chinaeast2', parameters('location'))]"
+          }
+        ],
+        "scriptContent": "[variables('$fxv#0')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "identityRoleAssignments",
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('vm_name'))]"
+      ]
+    }
+  ]
+}
