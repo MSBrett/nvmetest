@@ -18,7 +18,8 @@ if ([string]::IsNullOrEmpty($azLocation)){
     throw "azLocation is not provided"
 }
 
-$scriptToRun = '$physicaldisks = Get-StorageSubsystem -FriendlyName "Windows Storage*" | Get-PhysicalDisk -CanPool $true; New-StoragePool -FriendlyName "data" -StorageSubSystemFriendlyName "Windows Storage*" -PhysicalDisks $physicaldisks | New-VirtualDisk -FriendlyName "data" -UseMaximumSize -ResiliencySettingName Simple | Initialize-Disk -PassThru | New-Partition -AssignDriveLetter -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel "data" -Confirm:$false'
+$scriptToRun = '$physicaldisks = Get-StorageSubsystem -FriendlyName "Windows Storage*" | Get-PhysicalDisk -CanPool $true | Sort-Object -Property "DeviceId"; New-StoragePool -FriendlyName "data" -StorageSubSystemFriendlyName "Windows Storage*" -PhysicalDisks $physicaldisks[0..3] | New-VirtualDisk -FriendlyName "data" -UseMaximumSize -ResiliencySettingName Simple | Initialize-Disk -PassThru | New-Partition -DriveLetter "E" -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel "data" -Confirm:$false; New-StoragePool -FriendlyName "logs" -StorageSubSystemFriendlyName "Windows Storage*" -PhysicalDisks $physicaldisks[4..5] | New-VirtualDisk -FriendlyName "logs" -UseMaximumSize -ResiliencySettingName Simple | Initialize-Disk -PassThru | New-Partition -DriveLetter "F" -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel "logs" -Confirm:$false'
+
 Write-Output 'Running script to configure storage'
 Write-Output 'Remove existing run command with the same name - if it exists'
 Remove-AzVMRunCommand -ResourceGroupName $rgName -VMName $vmName -RunCommandName $commandName
